@@ -46,7 +46,6 @@ export function useWebRTC({isCaller, sendSignal, onIncomingCall, onCallRejected}
     }, []);
 
     // ─── Offer ────────────────────────────────────────────────────────────────
-
     const createOffer = useCallback(async (): Promise<void> => {
         try {
             if (hasCreatedOffer.current) return;
@@ -64,7 +63,7 @@ export function useWebRTC({isCaller, sendSignal, onIncomingCall, onCallRejected}
 
     const handleJoined = useCallback((): void => {
         if (isCaller) {
-            if(!hasJoined.current) {
+            if (!hasJoined.current) {
                 hasJoined.current = true;
                 void createOffer();
             }
@@ -141,10 +140,14 @@ export function useWebRTC({isCaller, sendSignal, onIncomingCall, onCallRejected}
                 console.log('REJECT RECEIVED', message);
                 onCallRejected();
                 break;
+            case 'leave':
+                console.log('[WebRTC] Leave signal received');
+                cleanup();
+                break;
             default:
                 console.warn('[WebRTC] Unknown signal type:', message.type);
         }
-    }, [handleJoined, handleOffer, handleAnswer, handleIceCandidate, onCallRejected]);
+    }, [handleJoined, handleOffer, handleAnswer, handleIceCandidate, onCallRejected, cleanup]);
 
     // ─── Init ─────────────────────────────────────────────────────────────────
 
@@ -160,11 +163,17 @@ export function useWebRTC({isCaller, sendSignal, onIncomingCall, onCallRejected}
         pc.ontrack = ({streams}: RTCTrackEvent) => onRemoteStream(streams[0]);
 
         pc.onicecandidate = ({candidate}: RTCPeerConnectionIceEvent) => {
-            if (candidate) sendSignal('ice', candidate.toJSON());
+            if (candidate) {
+                sendSignal('ice', candidate.toJSON());
+            }
         };
 
-        pc.onconnectionstatechange = () => console.log('[WebRTC] Connection state:', pc.connectionState);
-        pc.oniceconnectionstatechange = () => console.log('[WebRTC] ICE state:', pc.iceConnectionState);
+        pc.onconnectionstatechange = () => {
+            console.log('[WebRTC] Connection state:', pc.connectionState);
+        }
+        pc.oniceconnectionstatechange = () => {
+            console.log('[WebRTC] ICE state:', pc.iceConnectionState);
+        }
     }, [sendSignal]);
 
     // ─── Helpers ──────────────────────────────────────────────────────────────

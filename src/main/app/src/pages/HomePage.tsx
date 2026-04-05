@@ -1,4 +1,5 @@
-import { Button, Input, Space } from "antd";
+import { VideoCameraAddOutlined } from "@ant-design/icons";
+import { Button, Input } from "antd";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -17,14 +18,21 @@ export const HomePage = () => {
     }
 
     return (
-            <div className="flex flex-col items-center justify-center h-screen border">
-                <h1>Welcome to Video Call Service</h1>
-                <div>
-                    <Space.Compact style={{width: '100%'}}>
-                        <Input placeholder="Enter Room ID" onChange={(e) => setRoomId(e.target.value)}/>
-                        <Button type="primary" onClick={handleJoinRoom}>Join</Button>
-                    </Space.Compact>
-                    <Button type="primary" className="mt-2" onClick={handleCreateRoom}>Create Room</Button>
+            <div className="flex flex-col items-center justify-start h-screen mt-[10%]">
+                <h1>Welcome to Video Call</h1>
+                <div className="flex items-center justify-center gap-4">
+                    <Button type="primary" onClick={handleCreateRoom} icon={<VideoCameraAddOutlined/>} className="p-5!">
+                        Create New Room
+                    </Button>
+                    <div className="flex items-center gap-2">
+                        <Input placeholder="Enter Room ID"
+                               className="p-3!"
+                               onChange={(e) => setRoomId(e.target.value)}
+                        />
+                        <Button type="primary" onClick={handleJoinRoom} disabled={roomId === ""} className="p-5!">
+                            Join
+                        </Button>
+                    </div>
                 </div>
             </div>
     );

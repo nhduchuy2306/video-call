@@ -9,6 +9,7 @@ export interface UseVideoSDKOptions {
     isCaller: boolean;
     onIncomingCall?: OnIncomingCall;
     onCallRejected?: OnCallRejected;
+    setHasRemote?: (hasRemote: boolean) => void;
 }
 
 export interface UseVideoSDKReturn {
@@ -21,6 +22,7 @@ export interface UseVideoSDKReturn {
     stopScreenShare: () => Promise<void>;
     startRecording: () => void;
     stopRecording: () => void;
+    outRoomChat?: () => void;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -49,6 +51,7 @@ export function useVideoSDK({
                                 isCaller,
                                 onIncomingCall,
                                 onCallRejected,
+                                setHasRemote
                             }: UseVideoSDKOptions): UseVideoSDKReturn {
 
     // ─── Refs ─────────────────────────────────────────────────────────────────
@@ -89,6 +92,19 @@ export function useVideoSDK({
         };
     }, [cleanup]);
 
+    useEffect(() => {
+        const handleBeforeUnload = () => {
+            console.log('[VideoSDK] Browser closing...');
+            sendSignal('leave', {});
+        };
+
+        window.addEventListener('beforeunload', handleBeforeUnload);
+
+        return () => {
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+        };
+    }, [sendSignal]);
+
     // ─── Join ─────────────────────────────────────────────────────────────────
     const join = useCallback(async (): Promise<void> => {
         // 1. Camera + mic
@@ -109,6 +125,7 @@ export function useVideoSDK({
         initPeerConnection(stream, (remoteStream) => {
             if (remoteVideoRef.current) {
                 remoteVideoRef.current.srcObject = remoteStream;
+                setHasRemote?.(true);
             }
         });
 
@@ -117,7 +134,7 @@ export function useVideoSDK({
         setTimeout(() => {
             sendSignal('joined', {});
         }, 300);
-    }, [initPeerConnection, initWebSocket, sendSignal]);
+    }, [initPeerConnection, initWebSocket, sendSignal, setHasRemote]);
 
     // ─── Media controls ───────────────────────────────────────────────────────
     const toggleMic = useCallback((): void => {
@@ -178,7 +195,6 @@ export function useVideoSDK({
         replaceLocalVideoTrack(screenTrack);
         if (localVideoRef.current) localVideoRef.current.srcObject = new MediaStream([screenTrack]);
 
-        // Auto-stop khi user bấm nút stop trên browser's built-in bar
         screenTrack.onended = () => void stopScreenShare();
     }, [getVideoSender, replaceLocalVideoTrack, stopScreenShare]);
 
@@ -242,6 +258,35 @@ export function useVideoSDK({
         }
     }, []);
 
+    // ─── Out room Chat ────────────────────────────────────────────────────────
+    const outRoomChat = useCallback((): void => {
+        console.log('[VideoSDK] Leaving room...');
+
+        // 1. notify remote
+        sendSignal('leave', {});
+
+        // 2. stop local media
+        localStreamRef.current?.getTracks().forEach((track) => {
+            track.stop();
+        });
+        localStreamRef.current = null;
+
+        // 3. clear video UI
+        if (localVideoRef.current) {
+            localVideoRef.current.srcObject = null;
+        }
+
+        if (remoteVideoRef.current) {
+            remoteVideoRef.current.srcObject = null;
+        }
+
+        // 4. update UI state
+        setHasRemote?.(false);
+
+        // 5. cleanup WebRTC
+        cleanup();
+    }, [cleanup, sendSignal, setHasRemote]);
+
     // ─── Return public API ────────────────────────────────────────────────────
     return {
         localVideoRef,
@@ -253,5 +298,6 @@ export function useVideoSDK({
         stopScreenShare,
         startRecording,
         stopRecording,
+        outRoomChat
     };
 }

@@ -4,7 +4,7 @@ import SockJS from 'sockjs-client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type SignalType = 'joined' | 'offer' | 'answer' | 'ice' | 'reject';
+export type SignalType = 'joined' | 'offer' | 'answer' | 'ice' | 'reject' | 'leave';
 
 export interface SignalMessage {
     type: SignalType;
@@ -25,11 +25,10 @@ export interface UseSignalingOptions {
 
 export interface UseSignalingReturn {
     sendSignal: (type: SignalType, data: SignalMessage['data']) => void;
-    initWebSocket: () => void;
+    initWebSocket: (onConnected?: () => void) => void;
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
-
 export function useSignaling({roomId, onMessage}: UseSignalingOptions): UseSignalingReturn {
     const clientId = useRef<string>(crypto.randomUUID());
     const stompClient = useRef<Client | null>(null);
@@ -73,7 +72,7 @@ export function useSignaling({roomId, onMessage}: UseSignalingOptions): UseSigna
         doSend(type, data);
     }, [doSend]);
 
-    const initWebSocket = useCallback((): void => {
+    const initWebSocket = useCallback((onConnected?: () => void): void => {
         const client = new Client({
             webSocketFactory: () => new SockJS('http://localhost:8080/ws'),
             onConnect: () => {
@@ -92,6 +91,7 @@ export function useSignaling({roomId, onMessage}: UseSignalingOptions): UseSigna
                 // Flush signals bị buffer lúc WS chưa ready (bao gồm 'joined')
                 pendingSignals.current.forEach(({type, data}) => doSend(type, data));
                 pendingSignals.current = [];
+                onConnected?.();
             },
             onStompError: (frame) => console.error('[Signaling] STOMP error:', frame),
         });
